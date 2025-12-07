@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-
 interface SnakeGameProps {
     onExit: () => void;
 }
 
 const GRID_SIZE = 20;
-const SPEED = 150;
+
+const SPEEDS = {
+    EASY: 250,
+    NORMAL: 150,
+    HARD: 80
+};
 
 // Direction vectors
 const DIRECTIONS = {
@@ -17,6 +21,10 @@ const DIRECTIONS = {
 };
 
 const SnakeGame: React.FC<SnakeGameProps> = ({ onExit }) => {
+    // Game State
+    const [gamePhase, setGamePhase] = useState<'MENU' | 'PLAYING'>('MENU');
+    const [currentSpeed, setCurrentSpeed] = useState(SPEEDS.NORMAL);
+
     const [snake, setSnake] = useState([{ x: 10, y: 10 }]);
     const [food, setFood] = useState({ x: 15, y: 15 });
     const [direction, setDirection] = useState(DIRECTIONS.RIGHT);
@@ -35,7 +43,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onExit }) => {
         };
     }, []);
 
-    const resetGame = () => {
+    const startGame = (speed: number) => {
+        setCurrentSpeed(speed);
         setSnake([{ x: 10, y: 10 }]);
         setFood(generateFood());
         setDirection(DIRECTIONS.RIGHT);
@@ -43,9 +52,21 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onExit }) => {
         setGameOver(false);
         setIsPaused(false);
         directionChanged.current = false;
+        setGamePhase('PLAYING');
+    };
+
+    const resetGame = () => {
+        startGame(currentSpeed);
+    };
+
+    const goToMenu = () => {
+        setGamePhase('MENU');
+        setGameOver(false);
+        setIsPaused(false);
     };
 
     const handleKeyPress = useCallback((e: KeyboardEvent) => {
+        if (gamePhase !== 'PLAYING') return;
         if (gameOver) return;
         
         if (e.key === 'p' || e.key === 'P') {
@@ -73,7 +94,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onExit }) => {
                 break;
         }
         directionChanged.current = true;
-    }, [direction, gameOver, isPaused]);
+    }, [direction, gameOver, isPaused, gamePhase]);
 
     useEffect(() => {
         window.addEventListener('keydown', handleKeyPress);
@@ -81,7 +102,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onExit }) => {
     }, [handleKeyPress]);
 
     const moveSnake = useCallback(() => {
-        if (gameOver || isPaused) return;
+        if (gamePhase !== 'PLAYING' || gameOver || isPaused) return;
 
         setSnake(prevSnake => {
             const newHead = {
@@ -120,14 +141,55 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onExit }) => {
             directionChanged.current = false;
             return newSnake;
         });
-    }, [direction, food, gameOver, isPaused, generateFood]);
+    }, [direction, food, gameOver, isPaused, generateFood, gamePhase]);
 
     useEffect(() => {
-        gameLoopRef.current = setInterval(moveSnake, SPEED);
+        if (gamePhase === 'PLAYING' && !gameOver && !isPaused) {
+            gameLoopRef.current = setInterval(moveSnake, currentSpeed);
+        }
         return () => {
             if (gameLoopRef.current) clearInterval(gameLoopRef.current);
         };
-    }, [moveSnake]);
+    }, [moveSnake, gamePhase, currentSpeed, gameOver, isPaused]);
+
+    if (gamePhase === 'MENU') {
+        return (
+            <div className="flex flex-col items-center justify-center h-full w-full bg-gray-900 text-green-400 font-vt323 p-4">
+                <h2 className="text-4xl md:text-5xl mb-2 text-white drop-shadow-[2px_2px_0_rgba(0,100,0,1)] tracking-widest">SNAKE.EXE</h2>
+                <div className="mb-8 text-sm text-green-600">v1.0 (1989)</div>
+                
+                <div className="flex flex-col gap-4 w-full max-w-xs">
+                    <button 
+                        onClick={() => startGame(SPEEDS.EASY)} 
+                        className="group relative px-6 py-3 border-2 border-green-500 bg-black/50 hover:bg-green-500 hover:text-black transition-all text-xl uppercase tracking-wider"
+                    >
+                        <span className="absolute left-2 opacity-0 group-hover:opacity-100">►</span>
+                        EASY MODE
+                    </button>
+                    <button 
+                        onClick={() => startGame(SPEEDS.NORMAL)} 
+                        className="group relative px-6 py-3 border-2 border-yellow-500 text-yellow-500 bg-black/50 hover:bg-yellow-500 hover:text-black transition-all text-xl uppercase tracking-wider"
+                    >
+                        <span className="absolute left-2 opacity-0 group-hover:opacity-100">►</span>
+                        NORMAL MODE
+                    </button>
+                    <button 
+                        onClick={() => startGame(SPEEDS.HARD)} 
+                        className="group relative px-6 py-3 border-2 border-red-500 text-red-500 bg-black/50 hover:bg-red-500 hover:text-black transition-all text-xl uppercase tracking-wider"
+                    >
+                        <span className="absolute left-2 opacity-0 group-hover:opacity-100">►</span>
+                        HARD MODE
+                    </button>
+                </div>
+
+                <div className="mt-12">
+                    <button onClick={onExit} className="text-sm text-gray-500 hover:text-white transition-colors">
+                        [ ESC: RETURN TO OS ]
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col items-center justify-center h-full w-full bg-gray-900 text-green-400 p-4 font-vt323">
@@ -135,7 +197,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onExit }) => {
             <div className="w-full max-w-md flex justify-between items-end mb-4 border-b-4 border-green-700 pb-2">
                 <div>
                     <h2 className="text-2xl">SNAKE.EXE</h2>
-                    <p className="text-sm text-gray-400">USE ARROW KEYS</p>
+                    <p className="text-sm text-gray-400">
+                        MODE: {currentSpeed === SPEEDS.EASY ? 'EASY' : currentSpeed === SPEEDS.HARD ? 'HARD' : 'NORMAL'}
+                    </p>
                 </div>
                 <div className="text-right">
                     <p className="text-xl">SCORE: {score}</p>
@@ -165,18 +229,26 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onExit }) => {
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-20">
                         <p className="text-3xl text-red-500 mb-4">GAME OVER</p>
                         <p className="mb-6">FINAL SCORE: {score}</p>
-                        <button 
-                            onClick={resetGame}
-                            className="px-4 py-2 border-2 border-green-400 hover:bg-green-400 hover:text-black transition-colors mb-4"
-                        >
-                            RETRY
-                        </button>
-                        <button 
-                            onClick={onExit}
-                            className="px-4 py-2 border-2 border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition-colors"
-                        >
-                            EXIT
-                        </button>
+                        <div className="flex flex-col gap-2 w-2/3">
+                            <button 
+                                onClick={resetGame}
+                                className="px-4 py-2 border-2 border-green-400 hover:bg-green-400 hover:text-black transition-colors"
+                            >
+                                RETRY
+                            </button>
+                            <button 
+                                onClick={goToMenu}
+                                className="px-4 py-2 border-2 border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black transition-colors"
+                            >
+                                CHANGE MODE
+                            </button>
+                            <button 
+                                onClick={onExit}
+                                className="px-4 py-2 border-2 border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition-colors"
+                            >
+                                EXIT
+                            </button>
+                        </div>
                     </div>
                 )}
 

@@ -1,0 +1,5 @@
+{
+  "name": "RetroBit OS",
+  "description": "A nostalgic 8-bit console simulation featuring a retro OS interface, a classic Snake game, a synthwave music visualizer, and an AI terminal powered by Gemini.",
+  "requestFramePermissions": []
+}
